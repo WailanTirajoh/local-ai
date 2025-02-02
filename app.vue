@@ -13,12 +13,7 @@ const { models } = storeToRefs(tagStore);
       </ul>
     </aside>
     <div class="pl-64 w-full h-[100dvh]">
-      <div class="bg-red-200 relative w-full h-full">
-        <!-- TODO: Chat room _id -->
-        <div class="absolute bottom-0 left-0 w-full h-32 bg-white">
-          <textarea class="w-full h-32"></textarea>
-        </div>
-      </div>
+      <ChatGroup />
     </div>
   </div>
 </template>
