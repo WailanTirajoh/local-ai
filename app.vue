@@ -1,7 +1,4 @@
-<script setup lang="ts">
-const tagStore = useTagStore();
-const { models } = storeToRefs(tagStore);
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div>
@@ -12,7 +9,7 @@ const { models } = storeToRefs(tagStore);
         </li>
       </ul>
     </aside>
-    <div class="pl-64 w-full h-[100dvh]">
+    <div class="pl-64 w-full h-[100dvh] overflow-hidden">
       <ChatGroup />
     </div>
   </div>

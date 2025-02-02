@@ -14,5 +14,5 @@ export default <Partial<Config>>{
   theme: {
     extend: {},
   },
-  plugins: [],
+  plugins: [require("@tailwindcss/typography")],
 };
