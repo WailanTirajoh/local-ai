@@ -16,7 +16,7 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
   },
 
-  modules: ["@vueuse/nuxt", "@pinia/nuxt"],
+  modules: ["@vueuse/nuxt", "@pinia/nuxt", "nuxt-headlessui"],
 
   pinia: {
     storesDirs: ["./stores/**"],
