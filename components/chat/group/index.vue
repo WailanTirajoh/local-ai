@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { marked } from "marked";
 import type { Chat, ChatStream } from "~/types/chat";
 
 const { $api } = useNuxtApp();
@@ -13,7 +12,6 @@ const chats = ref<Chat[]>([
     id: generateULID(),
     role: ROLE.system,
     content: "you are a salty pirate",
-    parsedContent: "you are a salty pirate",
     done: true,
   },
 ]);
@@ -31,13 +29,6 @@ const updateLastChat = async (content: string, done: boolean = false) => {
 
   lastChat.content = content;
   lastChat.done = done;
-
-  const parsedContent = await marked.parse(
-    content
-      .replace(/<think>/g, '<div class="think">')
-      .replace(/<\/think>/g, "</div>")
-  );
-  lastChat.parsedContent = parsedContent;
 };
 
 const handleStreamError = () => {
@@ -45,7 +36,6 @@ const handleStreamError = () => {
   if (!lastChat) return;
 
   lastChat.content = "Error: Failed to generate response";
-  lastChat.parsedContent = "Error: Failed to generate response";
   lastChat.done = true;
 };
 
@@ -98,7 +88,6 @@ const generateStream = async () => {
     pushChat({
       role: ROLE.user,
       content: prompt.value,
-      parsedContent: prompt.value,
       done: true,
     });
     prompt.value = "";
@@ -152,11 +141,8 @@ const generateStream = async () => {
               <div
                 class="bg-white border border-gray-200 p-4 rounded-2xl group-even:rounded-tl-none group-odd:rounded-tr-none max-w-4xl group-odd:ml-auto"
               >
-                <template v-if="chat.parsedContent">
-                  <div
-                    v-html="chat.parsedContent"
-                    class="prose prose-sm sm:prose lg:prose-lg xl:prose-2xl focus:outline-none"
-                  ></div>
+                <template v-if="chat.content">
+                  <ChatGroupContent :content="chat.content" />
                   <div v-if="chat.model" class="text-xs italic text-gray-600">
                     Generated using {{ chat.model }}
                   </div>

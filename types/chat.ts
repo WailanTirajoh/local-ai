@@ -19,7 +19,6 @@ export type Chat = {
   id: string;
   role: string;
   content: string;
-  parsedContent?: string;
   done: boolean;
   model?: string;
 };
