@@ -7,11 +7,16 @@ const { $api } = useNuxtApp();
 const tagStore = useTagStore();
 const { model } = storeToRefs(tagStore);
 
-const USER_ROLE = "user";
-const SYSTEM_ROLE = "system";
-
 const prompt = ref("");
-const chats = ref<Chat[]>([]);
+const chats = ref<Chat[]>([
+  {
+    id: generateULID(),
+    role: ROLE.system,
+    content: "you are a salty pirate",
+    parsedContent: "you are a salty pirate",
+    done: true,
+  },
+]);
 
 const pushChat = (chat: Omit<Chat, "id">) => {
   chats.value.push({
@@ -20,22 +25,28 @@ const pushChat = (chat: Omit<Chat, "id">) => {
   });
 };
 
-const updateLastChat = async (content: string, isDone: boolean = false) => {
+const updateLastChat = async (content: string, done: boolean = false) => {
   const lastChat = chats.value.at(-1);
   if (!lastChat) return;
 
   lastChat.content = content;
-  lastChat.isDone = isDone;
-  lastChat.parsedContent = await marked.parse(content);
+  lastChat.done = done;
+
+  const parsedContent = await marked.parse(
+    content
+      .replace(/<think>/g, '<div class="think">')
+      .replace(/<\/think>/g, "</div>")
+  );
+  lastChat.parsedContent = parsedContent;
 };
 
 const handleStreamError = () => {
   const lastChat = chats.value.at(-1);
-  if (lastChat) {
-    lastChat.content = "Error: Failed to generate response";
-    lastChat.parsedContent = "Error: Failed to generate response";
-    lastChat.isDone = true;
-  }
+  if (!lastChat) return;
+
+  lastChat.content = "Error: Failed to generate response";
+  lastChat.parsedContent = "Error: Failed to generate response";
+  lastChat.done = true;
 };
 
 const processStream = async (reader: ReadableStreamDefaultReader<string>) => {
@@ -52,7 +63,7 @@ const processStream = async (reader: ReadableStreamDefaultReader<string>) => {
       try {
         const valueObject: ChatStream = JSON.parse(value);
         result += valueObject.message.content;
-        await updateLastChat(result);
+        await updateLastChat(result, valueObject.done);
       } catch (e) {
         console.error("Error parsing stream chunk:", e);
       }
@@ -68,7 +79,12 @@ const fetchChatStream = async () => {
     method: "POST",
     body: {
       model: model.value?.model,
-      messages: chats.value,
+      messages: chats.value
+        .map((chat) => {
+          const { role, content } = chat;
+          return { role, content };
+        })
+        .filter((chat) => chat.content !== ""),
     },
     responseType: "stream",
   });
@@ -80,23 +96,25 @@ const generateStream = async () => {
   try {
     // Add user message
     pushChat({
-      role: USER_ROLE,
+      role: ROLE.user,
       content: prompt.value,
       parsedContent: prompt.value,
-      isDone: true,
+      done: true,
     });
     prompt.value = "";
 
     // Add system placeholder
     pushChat({
-      role: SYSTEM_ROLE,
+      role: ROLE.assistant,
       content: "",
-      isDone: false,
+      done: false,
+      model: model.value?.model,
     });
 
     // Fetch and process stream
     const response = await fetchChatStream();
     const reader = response.pipeThrough(new TextDecoderStream()).getReader();
+
     await processStream(reader);
   } catch (error) {
     console.error("API request failed:", error);
@@ -107,18 +125,64 @@ const generateStream = async () => {
 
 <template>
   <div class="relative">
-    <div class="h-[calc(100dvh-9rem-5rem)] overflow-auto">
-      <ul>
-        <li v-for="chat in chats" :key="chat.id">
-          <div
-            class="prose prose-sm sm:prose lg:prose-lg xl:prose-2xl focus:outline-none p-4 mx-auto"
-          >
-            <div class="capitalize">
-              {{ chat.role }}
+    <div class="h-[calc(100dvh-9rem-5rem)] overflow-auto py-8">
+      <ul class="grid gap-6">
+        <li
+          v-for="chat in chats.filter((chat) => chat.role !== ROLE.system)"
+          :key="chat.id"
+          class="group"
+        >
+          <div class="max-w-6xl mx-auto flex group-odd:flex-row-reverse gap-4">
+            <div class="capitalize group-odd:text-right text-2xl py-2">
+              <template v-if="chat.role === ROLE.assistant">
+                <div class="text-center">
+                  <Icon name="mdi:pirate" size="40" class="text-gray-800" />
+                </div>
+              </template>
+              <template v-if="chat.role === ROLE.user">
+                <div class="text-center">
+                  <Icon name="uis:user-md" size="40" class="text-gray-800" />
+                </div>
+              </template>
+              <div class="text-center text-base italic text-gray-600">
+                {{ chat.role }}
+              </div>
             </div>
-            <div v-html="chat.parsedContent"></div>
+            <div class="pt-7">
+              <div
+                class="bg-white border border-gray-200 p-4 rounded-2xl group-even:rounded-tl-none group-odd:rounded-tr-none max-w-4xl group-odd:ml-auto"
+              >
+                <template v-if="chat.parsedContent">
+                  <div
+                    v-html="chat.parsedContent"
+                    class="prose prose-sm sm:prose lg:prose-lg xl:prose-2xl focus:outline-none"
+                  ></div>
+                  <div v-if="chat.model" class="text-xs italic text-gray-600">
+                    Generated using {{ chat.model }}
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="flex animate-pulse space-x-4 w-xl">
+                    <div class="flex-1 space-y-6 py-1">
+                      <div class="h-5 rounded bg-gray-200"></div>
+                      <div class="space-y-3">
+                        <div class="grid grid-cols-3 gap-4">
+                          <div class="col-span-2 h-2 rounded bg-gray-200"></div>
+                          <div class="col-span-1 h-2 rounded bg-gray-200"></div>
+                        </div>
+                        <div class="h-2 rounded bg-gray-200"></div>
+                        <div class="grid grid-cols-3 gap-4">
+                          <div class="col-span-1 h-2 rounded bg-gray-200"></div>
+                          <div class="col-span-2 h-2 rounded bg-gray-200"></div>
+                        </div>
+                        <div class="h-2 rounded bg-gray-200"></div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
           </div>
-          <hr class="border border-gray-50" />
         </li>
       </ul>
     </div>
@@ -133,3 +197,11 @@ const generateStream = async () => {
     </div>
   </div>
 </template>
+
+<style>
+.think {
+  padding-left: 1rem;
+  font-size: 1rem;
+  border-left: 2px solid #8b8b8b;
+}
+</style>

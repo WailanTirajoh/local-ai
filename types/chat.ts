@@ -20,6 +20,6 @@ export type Chat = {
   role: string;
   content: string;
   parsedContent?: string;
-  isDone: boolean;
+  done: boolean;
   model?: string;
 };
